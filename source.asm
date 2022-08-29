@@ -1,8 +1,7 @@
 section "Header", ROM0[$100]
+    jr EntryPoint
 
-	jr EntryPoint
-
-	ds $150 - @, 0  ; Make room for the header
+    ds $150 - @, 0  ; Make room for the header
 
 EntryPoint:
     ld de, $0000    ; this is where you change the initial x (upper byte) and y (lower byte)
