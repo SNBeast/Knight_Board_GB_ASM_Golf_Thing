@@ -11,7 +11,6 @@ FillLoop:
     ld a, "7"
     ld h, a
     ld bc, (8 * $100) + (StringTable - $FF00)
-    push bc
 .outer:
     ld l, 8
 .inner:
@@ -36,8 +35,6 @@ FillLoop:
 
 Search:
     ld h, "0" - 1
-    pop bc          ; by a magic coincidence, it turns out that b, which is used as a bound-check, is the same as b before. two bytes saved
-    ld a, 8         ; used for bound checking
     call Recursion
 
 ; this is the debug print activation routine for no$gmb and BGB. this does not work on hardware.
@@ -58,32 +55,30 @@ HangMachine:
 Recursion:
     inc h
 .depthCheck:
-    dec b
+    ld a, "7"
+    cp a, h
     jr z, .abort
 .positionBoundCheck:
+    ld a, 8
     cp a, d
     jr c, .abort
     cp a, e
     jr c, .abort
-    push af         ; f is the flags register, don't worry about it
-    ld a, c
+    ld a, StringTable - $FF00
+    ld c, a
     ld l, 10        ; row length
 .yLoop:
     add a, e
     dec l
     jr nz, .yLoop
-
+.suboptimalCheck
     add a, d
-    ld l, c
     ld c, a
     ldh a, [c]
     cp a, h
-    jr c, .skipWrite
+    jr c, .abort
     ld a, h
     ldh [c], a
-.skipWrite:
-    ld c, l
-    pop af
 
 .theActualSearch:
     push de
@@ -116,7 +111,6 @@ Recursion:
 
 .abort:
     dec h
-    inc b
     ret
 
 section "Memory", HRAM
