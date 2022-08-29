@@ -86,6 +86,7 @@ Recursion:
     pop af
 
 .theActualSearch:
+    push de
     inc d
     inc e
     inc e
@@ -111,9 +112,7 @@ Recursion:
     inc d
     inc e
     call Recursion
-    inc d
-    dec e
-    dec e
+    pop de
 
 .abort:
     dec h
