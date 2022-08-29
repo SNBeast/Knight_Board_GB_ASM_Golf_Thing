@@ -29,7 +29,6 @@ FillLoop:
     dec b
     jr nz, .outer
 .end:
-    dec c
     xor a, a
     ldh [c], a
 
@@ -115,5 +114,5 @@ Recursion:
 
 section "Memory", HRAM
 StringTable:
-    ds 80           ; (8 + 2) * 8 (eight spaces per line, two control characters (\r\n) per line, eight lines. null terminator replaces last control character)
-                    ; with the default stack pointer and our table in HRAM, we get 23 words of stack space. nice.
+    ds 81           ; (8 + 2) * 8 + 1 (eight spaces per line, two control characters (\r\n) per line, eight lines, null terminator)
+                    ; with the default stack pointer and our table in HRAM, we get 22 words of stack space. nice.
