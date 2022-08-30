@@ -6,34 +6,41 @@ section "Header", ROM0[$100]
 EntryPoint:
     ld de, $0000    ; this is where you change the initial x (upper byte) and y (lower byte)
 
-; this abomination would be much cleaner if the debug print didn't require \r\n
+; now's as good a time as any to establish my requirements. in addition to the requirements listed by the question, i will add four clarifications:
+; 1. the printed board must be composed exclusively of printable characters for all inputs (if the input is out of bounds and you didn't realize, it's nice to see).
+; 2. the printed board must be two-dimensional. otherwise it's not really, to me, representing a board.
+; 3. no garbage output after the board. that's unsightly and usually non-deterministic.
+; 4. the board is to be printed once. repetition is unsightly.
+; if you wish to remove the first requirement, you may replace FillLoop.outer's 'ld a, "7"' with an 'ld a, h', which saves one byte but makes the board invisible for out of bounds inputs. there is not enough flexibility to have it both ways, i tried.
+; if you wish to remove the second requirement, you may remove FillLoop.outerEnd's first four instructions and change Recursion.calculateTablePosition's 'ld l, 10' to 'ld l, 8', which saves six bytes of rom and sixteen bytes of hram but makes the board print into a stream of digits.
+; if you wish to remove the third requirement, you may remove FillLoop.nullTerminator's instruction, which saves one byte but causes the non-deterministic garbage after the table to be printed. (it seems BGB's noise is deterministic, as in combination with the previous change there's conveniently always 0 after the table.)
+; if you wish to remove the fourth requirement, you may remove HangMachine's 'db $76', which saves one byte but is guaranteed to make the full program repeat at least once because flow then goes into Recursion, where at the end the stack underflows, reading IE, which is initialized to 0 but can carry any byte, as the high byte of the return address, and the 0 page is a nop slide into the entrypoint.
+
+; tl;dr: i set myself some rules, and if you throw them out you save nine bytes, which gets you past the 0x70 milestone, or if you throw out a particular one you get to 0x70
+
 FillLoop:
-    ld a, "7"
-    ld h, a
-    ld bc, (8 * $100) + (StringTable - $FF00)
+    ld hl, StringTable
+    ld b, 8         ; outer loop counter
 .outer:
-    ld l, 8
+    ld c, 8         ; inner loop counter
+    ld a, "7"       ; any value above "6"
 .inner:
-    ldh [c], a
-    inc c
-    dec l
+    ld [hl+], a
+    dec c
     jr nz, .inner
 .outerEnd:
     ld a, "\r"
-    ldh [c], a
-    inc c
+    ld [hl+], a
     ld a, "\n"
-    ldh [c], a
-    inc c
-    ld a, h
+    ld [hl+], a
     dec b
     jr nz, .outer
-.end:
-    xor a, a
-    ldh [c], a
+.nullTerminator:
+    ld [hl], b      ; we want a null terminator. we cannot rely on the following uninitialized memory because the Game Boy's uninitialized memory is non-deterministic.
+                    ; we instead rely on the outer loop counter we conveniently just confirmed to be zero.
 
 Search:
-    ld h, "0" - 1
+    ld h, "0" - 1   ; this will be the recursion depth tracker and character written (the recursion depths, as printable characters, is the desired output)
     call Recursion
 
 ; this is the debug print activation routine for no$gmb and BGB. this does not work on hardware.
@@ -43,13 +50,12 @@ BGBDebugPrint:
     dw $6464        ; magic
     dw $0001        ; load from address space
     dw StringTable  ; address to load from
-    dw 0            ; bank 0 (irrelevant to HRAM)
+    dw $0000        ; bank 0 (irrelevant to HRAM)
 .end:
 
 HangMachine:
     db $76          ; this places a halt instruction without a nop after it as opposed to "halt", saving one byte.
                     ; this halt hangs permanently because by default all interrupts are disabled but interrupting is enabled.
-                    ; if this halt isn't here, the program will repeat for a long time because of a return address stack underflow
 
 Recursion:
     inc h
@@ -58,27 +64,28 @@ Recursion:
     cp a, h
     jr z, .abort
 .positionBoundCheck:
-    ld a, 8
+    ld a, 7
     cp a, d
     jr c, .abort
     cp a, e
     jr c, .abort
+.calculateTablePosition:
     ld a, StringTable - $FF00
-    ld c, a
     ld l, 10        ; row length
-.yLoop:
+.yMultiply:
     add a, e
     dec l
-    jr nz, .yLoop
-.suboptimalCheck
+    jr nz, .yMultiply
+
     add a, d
+.suboptimalPathCheck:
     ld c, a
     ldh a, [c]
     cp a, h
     jr c, .abort
+.writeTile:
     ld a, h
     ldh [c], a
-
 .theActualSearch:
     push de
     inc d
